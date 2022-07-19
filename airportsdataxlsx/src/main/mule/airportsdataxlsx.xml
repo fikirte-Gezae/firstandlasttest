@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="7cc3d618-64e3-4291-a1ec-657201e7afb0" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="e2587e00-d858-488c-b5cb-350e7651928f" />
+	<flow name="airportsdataxlsxFlow" doc:id="d1fc9b7f-a9e2-4e86-bb5a-c8e61f76daab" >
+		<http:listener doc:name="Get " doc:id="3d257d1d-3589-40ac-9c61-2c64d9be4cc8" config-ref="HTTP_Listener_config" path="sending-xlsx"/>
+		<set-variable value="#[attributes.queryParams.format]" doc:name="queryParamsDataFormat" doc:id="c91cf653-5571-4c26-b0f7-18835c0206ac" variableName="queryParamsDataFormat"/>
+		<set-variable value="#[attributes.headers.'content-type']" doc:name="headersDataFormat" doc:id="5b8eff86-030c-4c40-8873-db6ed0fb0c69" variableName="headersDataFormat"/>
+		<ee:transform doc:name="Transform Message" doc:id="8ed011d1-5484-4ace-8de3-619ba6848055" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="request_data" ><![CDATA[%dw 2.0
+output application/java
+---
+if (isEmpty(vars.queryParamsDataFormat) == true)
+splitBy	(vars.headersDataFormat,'/')[1]
+
+else
+	vars.queryParamsDataFormat
+
+
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<file:read doc:name="Read" doc:id="f2ded428-7fb9-41da-aef2-25bb6fb5f60a" config-ref="File_Config" path="/Users/fikirtegezae/Desktop/airports.csv"/>
+		<choice doc:name="Choice" doc:id="f700b8b6-1d1c-401e-afd5-16ddd73576d2" >
+			<when expression="#[vars.request_data=='json']">
+				<ee:transform doc:name="to json" doc:id="88d792fb-22de-4829-a08a-3d6d74ea4d69" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+
+	
+ 'data' :payload
+
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<when expression="#[vars.request_data=='cvs']">
+				<ee:transform doc:name="to csv" doc:id="0c730b8a-83ec-4636-b4b7-1313ef971b20" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv
+---
+{
+	'data' :payload
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<when expression="#[vars.request_data=='xml']">
+				<ee:transform doc:name="to xml" doc:id="e12e5f43-2137-49aa-8f53-d2b85314086c" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+---
+{
+	'airports':
+	   {
+	   'data': payload
+	   }
+}
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<when expression='#[isEmpty(vars.request_data)]'>
+				<ee:transform doc:name="to json" doc:id="df71030a-fab9-49a7-bb02-d87d8be3db71" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	'data':payload
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="61972065-b42e-4257-b1ee-943ac8f64f7f" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+
+
+{
+	
+	"message" : vars.request_data default " " ++ "is not formated data"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>
